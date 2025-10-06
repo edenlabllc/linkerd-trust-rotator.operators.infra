@@ -1,0 +1,329 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: linkerdtrustrotations.trust-anchor.linkerd.edenlab.io
+spec:
+  group: trust-anchor.linkerd.edenlab.io
+  names:
+    kind: LinkerdTrustRotation
+    listKind: LinkerdTrustRotationList
+    plural: linkerdtrustrotations
+    singular: linkerdtrustrotation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.progress.controlPlaneReady
+      name: CP
+      type: boolean
+    - jsonPath: .status.progress.dataPlanePercent
+      name: DP%
+      type: integer
+    - jsonPath: .status.trust.bundleState
+      name: Bundle
+      type: string
+    - jsonPath: .status.lastUpdated
+      name: Updated
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: LinkerdTrustRotation is the Schema for the linkerdtrustrotations
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of LinkerdTrustRotation
+            properties:
+              bootstrapPrevious:
+                description: |-
+                  Whether the operator should create the previous trust secret
+                  during the first bootstrap if it does not exist.
+                  If false, the operator assumes it is already provisioned.
+                type: boolean
+              currentTrustSecret:
+                type: string
+              dryRun:
+                description: Dry-run mode
+                type: boolean
+              namespace:
+                description: Namespace where Linkerd control-plane is installed
+                type: string
+              previousTrustSecret:
+                type: string
+              rollout:
+                description: Rollout settings
+                properties:
+                  targetAnnotationSelector:
+                    description: Workload selection by pod-template annotation and
+                      per-kind scoping.
+                    properties:
+                      key:
+                        description: Annotation key to match (e.g., "linkerd.io/inject")
+                        type: string
+                      targets:
+                        description: 'Per-kind map: key is Kind (e.g., "Deployment",
+                          "StatefulSet", "DaemonSet", or custom kinds).'
+                        items:
+                          description: TargetScope defines scope for a particular
+                            Kind.
+                          properties:
+                            allowedNamespaces:
+                              description: Whitelist of namespaces for this Kind.
+                              items:
+                                type: string
+                              type: array
+                            annotationBump:
+                              description: Options for the rolloutRestart.
+                              properties:
+                                bumpAnnotationKey:
+                                  description: 'Annotation key to bump (default: "operators.infra/rotation")'
+                                  type: string
+                                bumpAnnotationValue:
+                                  description: 'Annotation value to bump (default:
+                                    "")'
+                                  type: string
+                              type: object
+                            apiGroup:
+                              description: Optional G/V for custom kinds. Built-ins
+                                default to apps/v1.
+                              type: string
+                            kind:
+                              type: string
+                            kindType:
+                              description: Type of Kubernetes resources (e.g. "Deployment",
+                                "StatefulSet", "DaemonSet", "CustomResource")
+                              enum:
+                              - Deployment
+                              - StatefulSet
+                              - DaemonSet
+                              - CustomResource
+                              type: string
+                            rolloutStrategy:
+                              description: Rollout strategy (e.g. "rolloutRestart",
+                                "rolloutDelete")
+                              enum:
+                              - rolloutRestart
+                              - rolloutDelete
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - allowedNamespaces
+                          - kindType
+                          type: object
+                        type: array
+                      value:
+                        description: Expected value (e.g., "enabled")
+                        type: string
+                    required:
+                    - key
+                    - targets
+                    - value
+                    type: object
+                required:
+                - targetAnnotationSelector
+                type: object
+              safety:
+                description: Safety and validation settings
+                properties:
+                  holdAfterCleanup:
+                    description: |-
+                      Hold time after reaching readiness threshold after cleanup previous trust secret (e.g. "5m").
+                      Relevant only if retriggerRollout is enabled.
+                    type: string
+                  linkerdCheckProxy:
+                    description: Run `linkerd check --proxy` during rollout
+                    type: boolean
+                  linkerdCheckProxyImage:
+                    type: string
+                  maxFailures:
+                    description: Maximum number of allowed failures before aborting
+                      rotation
+                    type: integer
+                  preRolloutDelay:
+                    description: Delay before starting rollouts after detecting change
+                      (e.g. "30s")
+                    type: string
+                  retriggerRollout:
+                    description: |-
+                      RetriggerRollout runs an additional restart after trust cleanup,
+                      ensuring proxies reload only the new trust anchor.
+                    type: boolean
+                required:
+                - linkerdCheckProxy
+                - maxFailures
+                type: object
+              trigger:
+                description: Trigger settings
+                properties:
+                  onConfigMapChange:
+                    description: Start rotation when ConfigMap with trust roots is
+                      changed
+                    type: boolean
+                  requireSecretsDivergence:
+                    description: Require secrets divergence (current != previous)
+                      to trigger rotation
+                    type: boolean
+                required:
+                - onConfigMapChange
+                - requireSecretsDivergence
+                type: object
+              trustRootsConfigMap:
+                description: Names of ConfigMap and Secrets managed by the operator
+                type: string
+            required:
+            - bootstrapPrevious
+            - currentTrustSecret
+            - namespace
+            - previousTrustSecret
+            - rollout
+            - safety
+            - trigger
+            - trustRootsConfigMap
+            type: object
+          status:
+            description: status defines the observed state of LinkerdTrustRotation
+            properties:
+              completionTime:
+                description: Timestamp of completion (if succeeded or failed)
+                format: date-time
+                type: string
+              cursor:
+                description: Cursor tracks rollout position for resume on failure.
+                properties:
+                  lastDone:
+                    description: Last successfully processed item (for logs/diagnostics).
+                    properties:
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    - namespace
+                    type: object
+                  next:
+                    description: Index of the next item to process (0..Total). Increments
+                      on success.
+                    type: integer
+                  planHash:
+                    description: Hash of the current plan (Queue) to detect spec/selection
+                      changes.
+                    type: string
+                  total:
+                    description: Total number of items in the plan.
+                    type: integer
+                required:
+                - next
+                - total
+                type: object
+              lastUpdated:
+                description: Timestamp of the last update
+                format: date-time
+                type: string
+              message:
+                description: Human-readable message with details
+                type: string
+              phase:
+                description: Current phase of the rotation process
+                type: string
+              progress:
+                description: Progress information
+                properties:
+                  controlPlaneReady:
+                    description: Whether control-plane workloads are rolled out and
+                      ready
+                    type: boolean
+                  dataPlanePercent:
+                    description: Percentage of data-plane workloads updated and ready
+                    type: integer
+                required:
+                - controlPlaneReady
+                - dataPlanePercent
+                type: object
+              reason:
+                description: Reason for the current phase (short machine-readable
+                  string)
+                type: string
+              retries:
+                description: Number of retries and last error
+                properties:
+                  count:
+                    description: Number of performed retries
+                    type: integer
+                  lastError:
+                    description: Last error message if any
+                    type: string
+                  lastErrorObject:
+                    description: Reference to the work item that caused the last failure
+                    properties:
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    - namespace
+                    type: object
+                  lastErrorTime:
+                    description: Timestamp of the last error
+                    format: date-time
+                    type: string
+                required:
+                - count
+                type: object
+              startedAt:
+                description: Timestamp when rotation started
+                format: date-time
+                type: string
+              trust:
+                description: Trust anchor information
+                properties:
+                  bundleState:
+                    description: 'Bundle state: single | overlap'
+                    type: string
+                  currentFP:
+                    description: Current trust anchor fingerprint (short SHA256)
+                    type: string
+                  previousFP:
+                    description: Previous trust anchor fingerprint (short SHA256)
+                    type: string
+                required:
+                - bundleState
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

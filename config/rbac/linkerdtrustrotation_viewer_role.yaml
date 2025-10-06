@@ -1,0 +1,29 @@
+# This rule is not used by the project linkerd-trust-rotator itself.
+# It is provided to allow the cluster admin to help manage permissions for users.
+#
+# Grants read-only access to trust-anchor.linkerd.edenlab.io resources.
+# This role is intended for users who need visibility into these resources
+# without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: linkerd-trust-rotator
+    app.kubernetes.io/managed-by: kustomize
+  name: linkerdtrustrotation-viewer-role
+rules:
+- apiGroups:
+  - trust-anchor.linkerd.edenlab.io
+  resources:
+  - linkerdtrustrotations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - trust-anchor.linkerd.edenlab.io
+  resources:
+  - linkerdtrustrotations/status
+  verbs:
+  - get

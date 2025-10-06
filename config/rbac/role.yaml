@@ -1,0 +1,39 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - trust-anchor.linkerd.edenlab.io
+  resources:
+  - linkerdtrustrotations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - trust-anchor.linkerd.edenlab.io
+  resources:
+  - linkerdtrustrotations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - trust-anchor.linkerd.edenlab.io
+  resources:
+  - linkerdtrustrotations/status
+  verbs:
+  - get
+  - patch
+  - update

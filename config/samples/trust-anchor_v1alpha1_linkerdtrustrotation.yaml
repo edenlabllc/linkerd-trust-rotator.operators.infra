@@ -1,0 +1,47 @@
+apiVersion: trust-anchor.linkerd.edenlab.io/v1alpha1
+kind: LinkerdTrustRotation
+metadata:
+  name: default
+spec:
+  namespace: linkerd
+  trustRootsConfigMap: linkerd-identity-trust-roots
+  currentTrustSecret: linkerd-trust-anchor-file-ca-trust-anchor-secret
+  previousTrustSecret: linkerd-previous-trust-anchor
+  bootstrapPrevious: true
+
+  trigger:
+    onConfigMapChange: true
+    requireSecretsDivergence: true
+
+  rollout:
+    targetAnnotationSelector:
+      key: linkerd.io/inject
+      value: enabled
+      targets:
+        - kindType: CustomResource
+          allowedNamespaces: [kafka]
+          apiGroup: core.strimzi.io
+          kind: StrimziPodSet
+          version: v1beta2
+          annotationBump:
+            bumpAnnotationKey: strimzi.io/manual-rolling-update
+            bumpAnnotationValue: "true"
+        - kindType: StatefulSet
+          allowedNamespaces: [mongodb, zookeeper, clickhouse, minio]
+        - kindType: StatefulSet
+          allowedNamespaces: [redis]
+          rolloutStrategy: rolloutDelete
+        - kindType: StatefulSet
+          allowedNamespaces: [postgres]
+          rolloutStrategy: rolloutDelete
+        - kindType: Deployment
+          allowedNamespaces: [postgres, kong]
+
+  safety:
+    linkerdCheckProxy: true
+    preRolloutDelay: 30s
+    holdAfterCleanup: 30s
+    retriggerRollout: true
+    maxFailures: 3
+
+  dryRun: false
