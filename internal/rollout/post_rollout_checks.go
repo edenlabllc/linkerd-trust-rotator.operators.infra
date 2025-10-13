@@ -5,13 +5,12 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 
-	//v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -23,15 +22,17 @@ const (
 
 type CheckProxyOptions struct {
 	CLIImage      string
+	ControlPlane  bool
 	TargetNs      string
 	JobNs         string
 	JobNameSuffix string
 	Timeout       time.Duration
 }
 
-func NewCheckProxyOptions(image, targetNs, jobNS, jobNameSuffix string, timeout time.Duration) *CheckProxyOptions {
+func NewCheckProxyOptions(controlPlane bool, image, targetNs, jobNS, jobNameSuffix string, timeout time.Duration) *CheckProxyOptions {
 	return &CheckProxyOptions{
 		CLIImage:      image,
+		ControlPlane:  controlPlane,
 		TargetNs:      targetNs,
 		JobNs:         jobNS,
 		JobNameSuffix: jobNameSuffix,
@@ -43,6 +44,27 @@ func (m *ManageRollout) runLinkerdCheckJob(ctx context.Context, options *CheckPr
 	cliImage := options.CLIImage
 	if len(cliImage) == 0 {
 		cliImage = defaultLinkerdCLIImage
+	}
+
+	argsDataPlane := []string{
+		"check",
+		"--proxy",
+		"--namespace", options.TargetNs,
+		"--linkerd-namespace", options.JobNs,
+		"--wait=5m",
+		"--verbose",
+	}
+
+	argsControlPlane := []string{
+		"check",
+		"--linkerd-namespace", options.JobNs,
+		"--wait=5m",
+		"--verbose",
+	}
+
+	args := argsDataPlane
+	if options.ControlPlane {
+		args = argsControlPlane
 	}
 
 	sum := sha1.Sum([]byte(options.JobNameSuffix))
@@ -67,12 +89,7 @@ func (m *ManageRollout) runLinkerdCheckJob(ctx context.Context, options *CheckPr
 						{
 							Name:  jobNamePrefix,
 							Image: cliImage,
-							Args: []string{
-								"check",
-								"--proxy",
-								"--namespace", options.TargetNs,
-								"--linkerd-namespace", options.JobNs,
-								"--wait=2m", "--verbose"},
+							Args:  args,
 							// If cluster needs RBAC or KUBECONFIG, you may mount ServiceAccount token automatically.
 						},
 					},

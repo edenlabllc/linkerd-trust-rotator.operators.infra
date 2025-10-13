@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -16,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
 	trv1alpha1 "linkerd-trust-rotator.operators.infra/api/v1alpha1"
 )

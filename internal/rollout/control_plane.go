@@ -3,14 +3,16 @@ package rollout
 import (
 	"context"
 	"fmt"
+	"sort"
+
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	trv1alpha1 "linkerd-trust-rotator.operators.infra/api/v1alpha1"
 	"linkerd-trust-rotator.operators.infra/internal/status"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
 )
 
 const (
@@ -71,6 +73,17 @@ func (m *ManageRollout) RestartLinkerdControlPlane(ctx context.Context, obj *trv
 		}
 
 		m.Logger.Info(fmt.Sprintf("Restarted linkerd control plane Deployment: %s/%s", dp.Namespace, dp.Name))
+	}
+
+	if err := m.runLinkerdCheckJob(ctx, NewCheckProxyOptions(
+		true,
+		obj.Spec.Safety.LinkerdCheckProxyImage,
+		obj.Spec.Namespace,
+		obj.Spec.Namespace,
+		"control-plane",
+		rolloutPerLimit,
+	)); err != nil {
+		return err
 	}
 
 	if err := m.Status.SetProgress(ctx, obj, true, nil, nil); err != nil {

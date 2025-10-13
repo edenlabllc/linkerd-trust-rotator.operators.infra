@@ -19,23 +19,24 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
-	"linkerd-trust-rotator.operators.infra/internal/config_map"
-	"linkerd-trust-rotator.operators.infra/internal/rollout"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"time"
 
+	"github.com/go-logr/logr"
+	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	trv1alpha1 "linkerd-trust-rotator.operators.infra/api/v1alpha1"
+	"linkerd-trust-rotator.operators.infra/internal/config_map"
+	"linkerd-trust-rotator.operators.infra/internal/rollout"
 	"linkerd-trust-rotator.operators.infra/internal/secret"
 	"linkerd-trust-rotator.operators.infra/internal/status"
 )
@@ -166,6 +167,26 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 	if bundleStatus == trv1alpha1.BundleStateOverlap {
 		// TODO: implementation DryRun method
 		if lTR.Spec.DryRun {
+			var workItemDryRun []rollout.WorkItemDryRun
+
+			plane, err := rolloutMgr.SelectLinkerdDataPlane(ctx, lTR)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			for _, item := range plane.Queue {
+				workItemDryRun = append(workItemDryRun, *item.WorkItemDryRun)
+			}
+
+			dryRun, err := yaml.Marshal(workItemDryRun)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if err := statusMgr.SetDryRunOutput(ctx, lTR, string(dryRun)); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return ctrl.Result{}, nil
 		}
 
@@ -204,10 +225,20 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		if err := rolloutMgr.RestartLinkerdControlPlane(ctx, lTR); err != nil {
+			if err := statusMgr.MarkFailed(ctx, lTR, trv1alpha1.ReasonRotationFailed,
+				err.Error()); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return ctrl.Result{}, err
 		}
 
 		if err := rolloutMgr.RestartLinkerdDataPlane(ctx, lTR); err != nil {
+			if err := statusMgr.MarkFailed(ctx, lTR, trv1alpha1.ReasonRotationFailed,
+				err.Error()); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return ctrl.Result{}, err
 		}
 
@@ -225,6 +256,11 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 			}
 
 			if err := rolloutMgr.RestartLinkerdDataPlane(ctx, lTR); err != nil {
+				if err := statusMgr.MarkFailed(ctx, lTR, trv1alpha1.ReasonRotationFailed,
+					err.Error()); err != nil {
+					return ctrl.Result{}, err
+				}
+
 				return ctrl.Result{}, err
 			}
 		}

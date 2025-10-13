@@ -3,15 +3,17 @@ package rollout
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
+
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	trv1alpha1 "linkerd-trust-rotator.operators.infra/api/v1alpha1"
 	"linkerd-trust-rotator.operators.infra/internal/status"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"time"
 )
 
 const (
@@ -30,12 +32,7 @@ const (
 )
 
 type WorkItem struct {
-	Kind      Kind
-	Namespace string
-	Name      string
-
-	// Strategy ties to your rollout strategy decision
-	Strategy string
+	*WorkItemDryRun
 
 	// Full objects for handlers that need them
 	Dep *v1.Deployment
@@ -46,6 +43,15 @@ type WorkItem struct {
 	// Optional vendor bump for CRs (e.g., Strimzi)
 	BumpAnnotationKey   string
 	BumpAnnotationValue string
+}
+
+type WorkItemDryRun struct {
+	Kind      Kind
+	Namespace string
+	Name      string
+
+	// Strategy ties to your rollout strategy decision
+	Strategy string
 }
 
 // Result now also carries an ordered queue.
@@ -88,12 +94,15 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 				for i := range list.Items {
 					if hasAnnotationOnTemplate(list.Items[i].Spec.Template, annotationKey, annotationValue) {
 						ds := *list.Items[i].DeepCopy()
-						result.Queue = append(result.Queue, WorkItem{
+						workItemDryRun := &WorkItemDryRun{
 							Kind:      KindDaemonSet,
 							Namespace: ds.Namespace,
 							Name:      ds.Name,
 							Strategy:  rolloutStrategy,
-							Ds:        &ds,
+						}
+						result.Queue = append(result.Queue, WorkItem{
+							WorkItemDryRun: workItemDryRun,
+							Ds:             &ds,
 						})
 
 						numDetections++
@@ -116,12 +125,15 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 				for i := range list.Items {
 					if hasAnnotationOnTemplate(list.Items[i].Spec.Template, annotationKey, annotationValue) {
 						dep := *list.Items[i].DeepCopy()
-						result.Queue = append(result.Queue, WorkItem{
+						workItemDryRun := &WorkItemDryRun{
 							Kind:      KindDeployment,
 							Namespace: dep.Namespace,
 							Name:      dep.Name,
 							Strategy:  rolloutStrategy,
-							Dep:       &dep,
+						}
+						result.Queue = append(result.Queue, WorkItem{
+							WorkItemDryRun: workItemDryRun,
+							Dep:            &dep,
 						})
 
 						numDetections++
@@ -153,13 +165,16 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 				for i := range ul.Items {
 					if crHasTemplateAnnotation(&ul.Items[i], annotationKey, annotationValue) {
 						cr := *ul.Items[i].DeepCopy()
-						// If CR scope defines vendor-specific annotation bump, carry it
-						crItem := WorkItem{
+						workItemDryRun := &WorkItemDryRun{
 							Kind:      KindCR,
 							Namespace: cr.GetNamespace(),
 							Name:      cr.GetName(),
 							Strategy:  rolloutStrategy,
-							CR:        &cr,
+						}
+						// If CR scope defines vendor-specific annotation bump, carry it
+						crItem := WorkItem{
+							WorkItemDryRun: workItemDryRun,
+							CR:             &cr,
 						}
 
 						if scope.AnnotationBump != nil {
@@ -192,12 +207,15 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 				for i := range list.Items {
 					if hasAnnotationOnTemplate(list.Items[i].Spec.Template, annotationKey, annotationValue) {
 						sts := *list.Items[i].DeepCopy()
-						result.Queue = append(result.Queue, WorkItem{
+						workItemDryRun := &WorkItemDryRun{
 							Kind:      KindStatefulSet,
 							Namespace: sts.Namespace,
 							Name:      sts.Name,
 							Strategy:  rolloutStrategy,
-							Sts:       &sts,
+						}
+						result.Queue = append(result.Queue, WorkItem{
+							WorkItemDryRun: workItemDryRun,
+							Sts:            &sts,
 						})
 
 						numDetections++
@@ -481,6 +499,7 @@ func (m *ManageRollout) runProxyCheckIfEnabled(
 	}
 
 	return m.runLinkerdCheckJob(ctx, NewCheckProxyOptions(
+		false,
 		spec.Safety.LinkerdCheckProxyImage,
 		targetNS,
 		spec.Namespace,

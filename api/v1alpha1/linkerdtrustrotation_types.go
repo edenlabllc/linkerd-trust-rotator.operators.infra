@@ -265,6 +265,10 @@ type LinkerdTrustRotationStatus struct {
 	// Cursor tracks rollout position for resume on failure.
 	// +optional
 	Cursor *RolloutCursor `json:"cursor,omitempty"`
+
+	// DryRunOutput is a human-readable summary of the last dry-run (no changes applied).
+	// +optional
+	DryRunOutput string `json:"dryRunOutput,omitempty"`
 }
 
 // +kubebuilder:object:root=true

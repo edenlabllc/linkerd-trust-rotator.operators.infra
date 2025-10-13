@@ -7,6 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"linkerd-trust-rotator.operators.infra/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 
 	trv1alpha1 "linkerd-trust-rotator.operators.infra/api/v1alpha1"
 )

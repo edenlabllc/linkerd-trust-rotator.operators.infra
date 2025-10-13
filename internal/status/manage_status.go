@@ -3,14 +3,14 @@ package status
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"k8s.io/apimachinery/pkg/runtime"
 	"math"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	trv1alpha1 "linkerd-trust-rotator.operators.infra/api/v1alpha1"
@@ -161,6 +161,13 @@ func (m *ManageStatus) SetRetry(ctx context.Context, obj *trv1alpha1.LinkerdTrus
 			LastFailed:    workRef,
 			LastErrorTime: &now,
 		}
+	})
+}
+
+// SetDryRunOutput sets the human-readable output of the last dry run.
+func (m *ManageStatus) SetDryRunOutput(ctx context.Context, obj *trv1alpha1.LinkerdTrustRotation, dryRunOutput string) error {
+	return m.Patch(ctx, obj, "SetDryRunOutput", func(st *trv1alpha1.LinkerdTrustRotationStatus) {
+		st.DryRunOutput = dryRunOutput
 	})
 }
 

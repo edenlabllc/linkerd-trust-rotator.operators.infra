@@ -3,6 +3,9 @@ package rollout
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -12,10 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"linkerd-trust-rotator.operators.infra/internal/status"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"time"
+
+	"linkerd-trust-rotator.operators.infra/internal/status"
 )
 
 const (
@@ -79,42 +81,7 @@ func (m *ManageRollout) bumpAnnotationGeneric(ctx context.Context, obj client.Ob
 }
 
 func (m *ManageRollout) bumpAnnotationUnstructured(ctx context.Context, u *unstructured.Unstructured, key, value string) error {
-	// 1) Try .spec.template.metadata.annotations[key]=value (Deployment-like CRDs)
-	//if hasSpecTemplate(u) {
-	//	orig := u.DeepCopy()
-	//	ann, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
-	//	if ann == nil {
-	//		ann = map[string]string{}
-	//	}
-	//	ann[key] = value
-	//	if err := unstructured.SetNestedStringMap(u.Object, ann, "spec", "template", "metadata", "annotations"); err != nil {
-	//		return err
-	//	}
-	//	return m.Client.Patch(ctx, u, client.MergeFrom(orig))
-	//}
-
-	// 2) Try .spec.pods[].metadata.annotations[key]=value (StrimziPodSet-like arrays)
-	//if arr, ok, _ := unstructured.NestedSlice(u.Object, "spec", "pods"); ok && len(arr) > 0 {
-	//	orig := u.DeepCopy()
-	//	for i := range arr {
-	//		pm, _ := arr[i].(map[string]any)
-	//		ann, _, _ := nestedStringMap(pm, "metadata", "annotations")
-	//		if ann == nil {
-	//			ann = map[string]string{}
-	//		}
-	//		ann[key] = value
-	//		if err := unstructured.SetNestedStringMap(pm, ann, "metadata", "annotations"); err != nil {
-	//			return err
-	//		}
-	//		arr[i] = pm
-	//	}
-	//	if err := unstructured.SetNestedSlice(u.Object, arr, "spec", "pods"); err != nil {
-	//		return err
-	//	}
-	//	return m.Client.Patch(ctx, u, client.MergeFrom(orig))
-	//}
-
-	// 3) Fallback: set on resource metadata (works for CRDs with operator-defined triggers)
+	// Fallback: set on resource metadata (works for CRDs with operator-defined triggers)
 	orig := u.DeepCopy()
 	ann := u.GetAnnotations()
 	if ann == nil {
@@ -125,35 +92,6 @@ func (m *ManageRollout) bumpAnnotationUnstructured(ctx context.Context, u *unstr
 	u.SetAnnotations(ann)
 	return m.Client.Patch(ctx, u, client.MergeFrom(orig))
 }
-
-//func isGVK(u *unstructured.Unstructured, group, version, kind string) bool {
-//	gvk := u.GroupVersionKind()
-//	return gvk.Group == group && gvk.Version == version && gvk.Kind == kind
-//}
-//
-//func hasSpecTemplate(u *unstructured.Unstructured) bool {
-//	_, ok, _ := unstructured.NestedMap(u.Object, "spec", "template")
-//	return ok
-//}
-
-// nestedStringMap converts a map at given path into map[string]string (if present).
-//func nestedStringMap(m map[string]any, path ...string) (map[string]string, bool, error) {
-//	cur := m
-//	for _, p := range path {
-//		next, ok := cur[p].(map[string]any)
-//		if !ok {
-//			return nil, false, nil
-//		}
-//		cur = next
-//	}
-//	out := make(map[string]string, len(cur))
-//	for k, v := range cur {
-//		if s, ok := v.(string); ok {
-//			out[k] = s
-//		}
-//	}
-//	return out, true, nil
-//}
 
 // restartStatefulSetByDelete performs a manual rolling restart by deleting pods one-by-one.
 // Order: highest ordinal -> lowest (N-1 ... 0). Waits for each pod to become Ready again.

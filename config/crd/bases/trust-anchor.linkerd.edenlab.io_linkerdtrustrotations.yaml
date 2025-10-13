@@ -242,6 +242,10 @@ spec:
                 - next
                 - total
                 type: object
+              dryRunOutput:
+                description: DryRunOutput is a human-readable summary of the last
+                  dry-run (no changes applied).
+                type: string
               lastUpdated:
                 description: Timestamp of the last update
                 format: date-time
