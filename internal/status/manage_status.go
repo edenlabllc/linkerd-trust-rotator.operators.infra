@@ -167,7 +167,11 @@ func (m *ManageStatus) SetRetry(ctx context.Context, obj *trv1alpha1.LinkerdTrus
 // SetDryRunOutput sets the human-readable output of the last dry run.
 func (m *ManageStatus) SetDryRunOutput(ctx context.Context, obj *trv1alpha1.LinkerdTrustRotation, dryRunOutput string) error {
 	return m.Patch(ctx, obj, "SetDryRunOutput", func(st *trv1alpha1.LinkerdTrustRotationStatus) {
+		st.Phase = PhasePtr(trv1alpha1.PhaseDryRun)
+		st.Reason = ReasonPtr(trv1alpha1.ReasonDryRun)
+		st.Message = StringPtr("The data-plane dry run has completed successfully")
 		st.DryRunOutput = dryRunOutput
+		st.Progress = nil
 	})
 }
 

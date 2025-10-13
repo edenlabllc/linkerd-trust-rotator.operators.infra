@@ -165,7 +165,6 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if bundleStatus == trv1alpha1.BundleStateOverlap {
-		// TODO: implementation DryRun method
 		if lTR.Spec.DryRun {
 			var workItemDryRun []rollout.WorkItemDryRun
 

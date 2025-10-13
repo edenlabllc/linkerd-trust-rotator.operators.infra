@@ -28,6 +28,9 @@ const (
 	// PhaseDetecting — trust roots change detected (ConfigMap/Secrets analyzed)
 	PhaseDetecting Phase = "Detecting"
 
+	// PhaseDryRun indicates a data-plane dry run (plan/validate) with no changes applied
+	PhaseDryRun Phase = "DryRun"
+
 	// PhaseBootstrap — previous secret created/verified (first initialization)
 	PhaseBootstrap Phase = "Bootstrap"
 
@@ -98,4 +101,7 @@ const (
 	ReasonRotationSucceeded Reason = "RotationSucceeded"
 	ReasonRotationFailed    Reason = "RotationFailed"
 	ReasonManuallyPaused    Reason = "ManuallyPaused"
+
+	// --- Dry-run ---
+	ReasonDryRun Reason = "DryRunCompleted"
 )
