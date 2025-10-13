@@ -19,16 +19,16 @@ spec:
       name: Phase
       type: string
     - jsonPath: .status.progress.controlPlaneReady
-      name: CP
+      name: ControlPlaneReady
       type: boolean
     - jsonPath: .status.progress.dataPlanePercent
-      name: DP%
+      name: DataPlaneProgress%
       type: integer
     - jsonPath: .status.trust.bundleState
-      name: Bundle
+      name: BundleState
       type: string
     - jsonPath: .status.lastUpdated
-      name: Updated
+      name: LastUpdated
       type: date
     name: v1alpha1
     schema:

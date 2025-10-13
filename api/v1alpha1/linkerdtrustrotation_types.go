@@ -270,10 +270,10 @@ type LinkerdTrustRotationStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
-// +kubebuilder:printcolumn:name="CP",type=boolean,JSONPath=`.status.progress.controlPlaneReady`
-// +kubebuilder:printcolumn:name="DP%",type=integer,JSONPath=`.status.progress.dataPlanePercent`
-// +kubebuilder:printcolumn:name="Bundle",type=string,JSONPath=`.status.trust.bundleState`
-// +kubebuilder:printcolumn:name="Updated",type=date,JSONPath=`.status.lastUpdated`
+// +kubebuilder:printcolumn:name="ControlPlaneReady",type=boolean,JSONPath=`.status.progress.controlPlaneReady`
+// +kubebuilder:printcolumn:name="DataPlaneProgress%",type=integer,JSONPath=`.status.progress.dataPlanePercent`
+// +kubebuilder:printcolumn:name="BundleState",type=string,JSONPath=`.status.trust.bundleState`
+// +kubebuilder:printcolumn:name="LastUpdated",type=date,JSONPath=`.status.lastUpdated`
 
 // LinkerdTrustRotation is the Schema for the linkerdtrustrotations API
 type LinkerdTrustRotation struct {

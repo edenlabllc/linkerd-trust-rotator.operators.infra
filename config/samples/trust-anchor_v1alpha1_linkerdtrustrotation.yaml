@@ -27,7 +27,7 @@ spec:
             bumpAnnotationKey: strimzi.io/manual-rolling-update
             bumpAnnotationValue: "true"
         - kindType: StatefulSet
-          allowedNamespaces: [mongodb, zookeeper, clickhouse, minio]
+          allowedNamespaces: [mongodb, zookeeper, clickhouse, minio, weaviate]
         - kindType: StatefulSet
           allowedNamespaces: [redis]
           rolloutStrategy: rolloutDelete
