@@ -22,7 +22,7 @@ const (
 func (m *ManageRollout) SelectLinkerdControlPlane(ctx context.Context, obj *trv1alpha1.LinkerdTrustRotation) (*v1.DeploymentList, error) {
 	reqs := labels.NewSelector()
 	cpList := &v1.DeploymentList{}
-	namespace := obj.Spec.Namespace
+	namespace := obj.Spec.Linkerd.Namespace
 
 	if r, err := labels.NewRequirement(LabelCPNamespace, selection.In, []string{namespace}); err == nil {
 		reqs = reqs.Add(*r)
@@ -46,8 +46,8 @@ func (m *ManageRollout) RestartLinkerdControlPlane(ctx context.Context, obj *trv
 	}
 
 	if err := m.Status.SetPhase(ctx, obj,
-		status.PhasePtr(trv1alpha1.PhaseRollingCP),
-		status.ReasonPtr(trv1alpha1.ReasonCPRestarting),
+		status.PhasePtr(trv1alpha1.PhaseRollingControlPlane),
+		status.ReasonPtr(trv1alpha1.ReasonControlPlaneRestarting),
 		status.StringPtr("Starting rollout restart Linkerd control plane"),
 	); err != nil {
 		return err
@@ -77,9 +77,9 @@ func (m *ManageRollout) RestartLinkerdControlPlane(ctx context.Context, obj *trv
 
 	if err := m.runLinkerdCheckJob(ctx, NewCheckProxyOptions(
 		true,
-		obj.Spec.Safety.LinkerdCheckProxyImage,
-		obj.Spec.Namespace,
-		obj.Spec.Namespace,
+		obj.Spec.Protection.LinkerdCheckProxyImage,
+		obj.Spec.Linkerd.Namespace,
+		obj.Spec.Linkerd.Namespace,
 		"control-plane",
 		rolloutPerLimit,
 	)); err != nil {
@@ -91,8 +91,8 @@ func (m *ManageRollout) RestartLinkerdControlPlane(ctx context.Context, obj *trv
 	}
 
 	if err := m.Status.SetPhase(ctx, obj,
-		status.PhasePtr(trv1alpha1.PhaseRollingCP),
-		status.ReasonPtr(trv1alpha1.ReasonCPReady),
+		status.PhasePtr(trv1alpha1.PhaseRollingControlPlane),
+		status.ReasonPtr(trv1alpha1.ReasonControlPlaneReady),
 		status.StringPtr("Finished restarted Linkerd control plane"),
 	); err != nil {
 		return err

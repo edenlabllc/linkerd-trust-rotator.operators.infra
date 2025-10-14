@@ -88,7 +88,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 			for _, ns := range namespaces {
 				var list v1.DaemonSetList
 				if err := m.Client.List(ctx, &list, client.InNamespace(ns)); err != nil {
-					return nil, fmt.Errorf("list daemonsets in %q: %w", ns, err)
+					return nil, fmt.Errorf("list Daemonsets in %q: %w", ns, err)
 				}
 
 				for i := range list.Items {
@@ -119,7 +119,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 			for _, ns := range namespaces {
 				var list v1.DeploymentList
 				if err := m.Client.List(ctx, &list, client.InNamespace(ns)); err != nil {
-					return nil, fmt.Errorf("list deployments in %q: %w", ns, err)
+					return nil, fmt.Errorf("list Deployments in %q: %w", ns, err)
 				}
 
 				for i := range list.Items {
@@ -197,7 +197,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 			for _, ns := range namespaces {
 				var list v1.StatefulSetList
 				if err := m.Client.List(ctx, &list, client.InNamespace(ns)); err != nil {
-					return nil, fmt.Errorf("list statefulsets in %q: %w", ns, err)
+					return nil, fmt.Errorf("list StatefulSets in %q: %w", ns, err)
 				}
 
 				sort.SliceStable(list.Items, func(i, j int) bool {
@@ -298,8 +298,8 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 	}
 
 	if err := m.Status.SetPhase(ctx, obj,
-		status.PhasePtr(trv1alpha1.PhaseRollingDP),
-		status.ReasonPtr(trv1alpha1.ReasonDPBatchRestarting),
+		status.PhasePtr(trv1alpha1.PhaseRollingDataPlane),
+		status.ReasonPtr(trv1alpha1.ReasonDataPlaneBatchRestarting),
 		status.StringPtr("Starting rollout restart Linkerd data plane"),
 	); err != nil {
 		return err
@@ -414,8 +414,7 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 				getNamespace(w), getName(w)))
 
 			if len(w.BumpAnnotationKey) == 0 || len(w.BumpAnnotationValue) == 0 {
-				return recordFailure(w, fmt.Errorf(
-					"BumpAnnotationKey, BumpAnnotationValue is required for custom resources %s", w.CR.GetKind()))
+				return recordFailure(w, fmt.Errorf("key, value is required for custom resources %s", w.CR.GetKind()))
 			}
 
 			if err := m.bumpAnnotationGeneric(ctx, w.CR, w.BumpAnnotationKey, w.BumpAnnotationValue); err != nil {
@@ -472,8 +471,8 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 	}
 
 	if err := m.Status.SetPhase(ctx, obj,
-		status.PhasePtr(trv1alpha1.PhaseRollingDP),
-		status.ReasonPtr(trv1alpha1.ReasonDPThresholdReached),
+		status.PhasePtr(trv1alpha1.PhaseRollingDataPlane),
+		status.ReasonPtr(trv1alpha1.ReasonDataPlaneThresholdReached),
 		status.StringPtr("Finished restarted Linkerd data plane"),
 	); err != nil {
 		return err
@@ -494,15 +493,15 @@ func (m *ManageRollout) runProxyCheckIfEnabled(
 	targetNS, targetName string,
 	timeout time.Duration,
 ) error {
-	if !spec.Safety.LinkerdCheckProxy {
+	if !spec.Protection.RunLinkerdCheckProxy {
 		return nil
 	}
 
 	return m.runLinkerdCheckJob(ctx, NewCheckProxyOptions(
 		false,
-		spec.Safety.LinkerdCheckProxyImage,
+		spec.Protection.LinkerdCheckProxyImage,
 		targetNS,
-		spec.Namespace,
+		spec.Linkerd.Namespace,
 		targetName,
 		timeout,
 	))

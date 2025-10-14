@@ -100,7 +100,7 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	switch {
-	case lTR.Spec.Trigger.RequireSecretsDivergence && !lTR.Spec.Trigger.OnConfigMapChange:
+	case lTR.Spec.Trigger.OnTrustAnchorSecretsDiff && !lTR.Spec.Trigger.OnTrustRootsConfigMapChange:
 		secretResult, err := secretMgr.EnsureTrustSecrets(ctx, lTR)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -114,7 +114,7 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 		if err := statusMgr.SetTrustInfo(ctx, lTR, status.BundlePtr(bundleStatus), secretResult.CurrentFP, secretResult.PreviousFP); err != nil {
 			return ctrl.Result{}, err
 		}
-	case lTR.Spec.Trigger.OnConfigMapChange && !lTR.Spec.Trigger.RequireSecretsDivergence:
+	case lTR.Spec.Trigger.OnTrustRootsConfigMapChange && !lTR.Spec.Trigger.OnTrustAnchorSecretsDiff:
 		configMapResult, err := configMapMgr.LoadAndInspectCMBundle(ctx, lTR)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -140,7 +140,7 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 		if err := statusMgr.SetTrustInfo(ctx, lTR, status.BundlePtr(bundleStatus), currentFP, previousFP); err != nil {
 			return ctrl.Result{}, err
 		}
-	case lTR.Spec.Trigger.RequireSecretsDivergence && lTR.Spec.Trigger.OnConfigMapChange:
+	case lTR.Spec.Trigger.OnTrustAnchorSecretsDiff && lTR.Spec.Trigger.OnTrustRootsConfigMapChange:
 		secretResult, err := secretMgr.EnsureTrustSecrets(ctx, lTR)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -189,9 +189,9 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, nil
 		}
 
-		if lTR.Status.Retries != nil && lTR.Status.Retries.Count > lTR.Spec.Safety.MaxFailures {
+		if lTR.Status.Retries != nil && lTR.Status.Retries.Count > lTR.Spec.Protection.MaxRolloutFailures {
 			msg := fmt.Sprintf("max retry limit reached (%d > %d); stopping rollout",
-				lTR.Status.Retries.Count, lTR.Spec.Safety.MaxFailures)
+				lTR.Status.Retries.Count, lTR.Spec.Protection.MaxRolloutFailures)
 
 			reqLogger.Info(msg)
 			r.Recorder.Event(lTR, corev1.EventTypeWarning, "MaxRetriesExceeded", msg)
@@ -209,13 +209,13 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 			status.PhasePtr(trv1alpha1.PhaseDetecting),
 			status.ReasonPtr(trv1alpha1.ReasonSecretsDiverged),
 			status.StringPtr(fmt.Sprintf("Certificate mismatch detected for Linkerd trust anchor: %s vs %s",
-				lTR.Spec.CurrentTrustSecret, lTR.Spec.PreviousTrustSecret,
+				lTR.Spec.Linkerd.TrustAnchorSecret, lTR.Spec.Linkerd.PreviousTrustAnchorSecret,
 			)),
 		); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		if err := waitWithPurpose(ctx, reqLogger, lTR.Spec.Safety.PreRolloutDelay, "pre-rollout delay"); err != nil {
+		if err := waitWithPurpose(ctx, reqLogger, lTR.Spec.Protection.BeforeRolloutDelay, "before rollout delay"); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -241,12 +241,12 @@ func (r *LinkerdTrustRotationReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, err
 		}
 
-		if err := secretMgr.DeleteSecrets(ctx, lTR, lTR.Spec.PreviousTrustSecret); err != nil {
+		if err := secretMgr.DeleteSecrets(ctx, lTR, lTR.Spec.Linkerd.PreviousTrustAnchorSecret); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		if lTR.Spec.Safety.RetriggerRollout {
-			if err := waitWithPurpose(ctx, reqLogger, lTR.Spec.Safety.HoldAfterCleanup, "hold after cleanup"); err != nil {
+		if lTR.Spec.Protection.RetriggerRolloutAfterCleanup {
+			if err := waitWithPurpose(ctx, reqLogger, lTR.Spec.Protection.HoldAfterCleanup, "hold after cleanup"); err != nil {
 				return ctrl.Result{}, err
 			}
 

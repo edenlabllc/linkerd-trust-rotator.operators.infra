@@ -170,7 +170,7 @@ func (m *ManageStatus) SetDryRunOutput(ctx context.Context, obj *trv1alpha1.Link
 		st.Phase = PhasePtr(trv1alpha1.PhaseDryRun)
 		st.Reason = ReasonPtr(trv1alpha1.ReasonDryRun)
 		st.Message = StringPtr("The data-plane dry run has completed successfully")
-		st.DryRunOutput = dryRunOutput
+		st.DryRunPlan = dryRunOutput
 		st.Progress = nil
 	})
 }

@@ -56,22 +56,65 @@ spec:
           spec:
             description: spec defines the desired state of LinkerdTrustRotation
             properties:
-              bootstrapPrevious:
-                description: |-
-                  Whether the operator should create the previous trust secret
-                  during the first bootstrap if it does not exist.
-                  If false, the operator assumes it is already provisioned.
-                type: boolean
-              currentTrustSecret:
-                type: string
               dryRun:
                 description: Dry-run mode
                 type: boolean
-              namespace:
-                description: Namespace where Linkerd control-plane is installed
-                type: string
-              previousTrustSecret:
-                type: string
+              linkerd:
+                description: Linkerd settings
+                properties:
+                  bootstrapPreviousSecret:
+                    description: |-
+                      Whether the operator should create the previous trust secret
+                      during the first bootstrap if it does not exist.
+                      If false, the operator assumes it is already provisioned.
+                    type: boolean
+                  namespace:
+                    description: Namespace where Linkerd control-plane is installed
+                    type: string
+                  previousTrustAnchorSecret:
+                    type: string
+                  trustAnchorSecret:
+                    type: string
+                  trustRootsConfigMap:
+                    description: Names of ConfigMap and Secrets managed by the operator
+                    type: string
+                required:
+                - bootstrapPreviousSecret
+                - namespace
+                - previousTrustAnchorSecret
+                - trustAnchorSecret
+                - trustRootsConfigMap
+                type: object
+              protection:
+                description: Protection and validation settings
+                properties:
+                  beforeRolloutDelay:
+                    description: Delay before starting rollouts after detecting change
+                      (e.g. "30s")
+                    type: string
+                  holdAfterCleanup:
+                    description: |-
+                      Hold time after reaching readiness threshold after cleanup previous trust secret (e.g. "5m").
+                      Relevant only if retriggerRollout is enabled.
+                    type: string
+                  linkerdCheckProxyImage:
+                    type: string
+                  maxRolloutFailures:
+                    description: Maximum number of allowed failures before aborting
+                      rotation
+                    type: integer
+                  retriggerRolloutAfterCleanup:
+                    description: |-
+                      RetriggerRolloutAfterCleanup runs an additional restart after trust cleanup,
+                      ensuring proxies reload only the new trust anchor.
+                    type: boolean
+                  runLinkerdCheckProxy:
+                    description: Run `linkerd check --proxy` during rollout
+                    type: boolean
+                required:
+                - maxRolloutFailures
+                - runLinkerdCheckProxy
+                type: object
               rollout:
                 description: Rollout settings
                 properties:
@@ -97,10 +140,10 @@ spec:
                             annotationBump:
                               description: Options for the rolloutRestart.
                               properties:
-                                bumpAnnotationKey:
+                                key:
                                   description: 'Annotation key to bump (default: "operators.infra/rotation")'
                                   type: string
-                                bumpAnnotationValue:
+                                value:
                                   description: 'Annotation value to bump (default:
                                     "")'
                                   type: string
@@ -145,63 +188,27 @@ spec:
                 required:
                 - targetAnnotationSelector
                 type: object
-              safety:
-                description: Safety and validation settings
-                properties:
-                  holdAfterCleanup:
-                    description: |-
-                      Hold time after reaching readiness threshold after cleanup previous trust secret (e.g. "5m").
-                      Relevant only if retriggerRollout is enabled.
-                    type: string
-                  linkerdCheckProxy:
-                    description: Run `linkerd check --proxy` during rollout
-                    type: boolean
-                  linkerdCheckProxyImage:
-                    type: string
-                  maxFailures:
-                    description: Maximum number of allowed failures before aborting
-                      rotation
-                    type: integer
-                  preRolloutDelay:
-                    description: Delay before starting rollouts after detecting change
-                      (e.g. "30s")
-                    type: string
-                  retriggerRollout:
-                    description: |-
-                      RetriggerRollout runs an additional restart after trust cleanup,
-                      ensuring proxies reload only the new trust anchor.
-                    type: boolean
-                required:
-                - linkerdCheckProxy
-                - maxFailures
-                type: object
               trigger:
                 description: Trigger settings
                 properties:
-                  onConfigMapChange:
+                  onTrustAnchorSecretsDiff:
+                    description: |-
+                      OnTrustAnchorSecretsDiff, if true, triggers rotation only when the current
+                      trust-anchor Secret(s) differ from the previously observed state (current != previous)ю
+                    type: boolean
+                  onTrustRootsConfigMapChange:
                     description: Start rotation when ConfigMap with trust roots is
                       changed
                     type: boolean
-                  requireSecretsDivergence:
-                    description: Require secrets divergence (current != previous)
-                      to trigger rotation
-                    type: boolean
                 required:
-                - onConfigMapChange
-                - requireSecretsDivergence
+                - onTrustAnchorSecretsDiff
+                - onTrustRootsConfigMapChange
                 type: object
-              trustRootsConfigMap:
-                description: Names of ConfigMap and Secrets managed by the operator
-                type: string
             required:
-            - bootstrapPrevious
-            - currentTrustSecret
-            - namespace
-            - previousTrustSecret
+            - linkerd
+            - protection
             - rollout
-            - safety
             - trigger
-            - trustRootsConfigMap
             type: object
           status:
             description: status defines the observed state of LinkerdTrustRotation
@@ -242,9 +249,9 @@ spec:
                 - next
                 - total
                 type: object
-              dryRunOutput:
-                description: DryRunOutput is a human-readable summary of the last
-                  dry-run (no changes applied).
+              dryRunPlan:
+                description: DryRunPlan is a human-readable summary of the last dry-run
+                  (no changes applied).
                 type: string
               lastUpdated:
                 description: Timestamp of the last update

@@ -60,16 +60,16 @@ func (m *ManageSecret) EnsureTrustSecrets(ctx context.Context, obj *trv1alpha1.L
 	var errFP error
 	result := &Result{}
 
-	cNamespaced := types.NamespacedName{Namespace: obj.Spec.Namespace, Name: obj.Spec.CurrentTrustSecret}
+	cNamespaced := types.NamespacedName{Namespace: obj.Spec.Linkerd.Namespace, Name: obj.Spec.Linkerd.TrustAnchorSecret}
 	cSecret := &v1.Secret{}
 	if err := m.Client.Get(ctx, cNamespaced, cSecret); err != nil {
 		return nil, err
 	}
 
-	pNamespaced := types.NamespacedName{Namespace: obj.Spec.Namespace, Name: obj.Spec.PreviousTrustSecret}
+	pNamespaced := types.NamespacedName{Namespace: obj.Spec.Linkerd.Namespace, Name: obj.Spec.Linkerd.PreviousTrustAnchorSecret}
 	pSecret := &v1.Secret{}
 	if err := m.Client.Get(ctx, pNamespaced, pSecret); err != nil {
-		if apierrors.IsNotFound(err) && obj.Spec.BootstrapPrevious {
+		if apierrors.IsNotFound(err) && obj.Spec.Linkerd.BootstrapPreviousSecret {
 			if err := m.bootstrapPreviousSecrets(ctx, cSecret, obj); err != nil {
 				return nil, err
 			}
@@ -162,8 +162,8 @@ func concatDER(pemBytes []byte) ([]byte, error) {
 func (m *ManageSecret) bootstrapPreviousSecrets(ctx context.Context, cSecret *v1.Secret, obj *trv1alpha1.LinkerdTrustRotation) error {
 	previousSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      obj.Spec.PreviousTrustSecret,
-			Namespace: obj.Spec.Namespace,
+			Name:      obj.Spec.Linkerd.PreviousTrustAnchorSecret,
+			Namespace: obj.Spec.Linkerd.Namespace,
 			Annotations: map[string]string{
 				secretAnnotation: "true",
 			},
@@ -179,7 +179,7 @@ func (m *ManageSecret) DeleteSecrets(ctx context.Context, obj *trv1alpha1.Linker
 	var (
 		zero      int64 = 0
 		bg              = metav1.DeletePropagationBackground
-		namespace       = obj.Spec.Namespace
+		namespace       = obj.Spec.Linkerd.Namespace
 	)
 
 	secret := &v1.Secret{

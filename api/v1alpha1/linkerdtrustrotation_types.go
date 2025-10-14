@@ -27,10 +27,11 @@ import (
 // in trust anchors has been detected.
 type RotationTrigger struct {
 	// Start rotation when ConfigMap with trust roots is changed
-	OnConfigMapChange bool `json:"onConfigMapChange"`
+	OnTrustRootsConfigMapChange bool `json:"onTrustRootsConfigMapChange"`
 
-	// Require secrets divergence (current != previous) to trigger rotation
-	RequireSecretsDivergence bool `json:"requireSecretsDivergence"`
+	// OnTrustAnchorSecretsDiff, if true, triggers rotation only when the current
+	// trust-anchor Secret(s) differ from the previously observed state (current != previous)ю
+	OnTrustAnchorSecretsDiff bool `json:"onTrustAnchorSecretsDiff"`
 }
 
 // RolloutSpec defines how workloads should be restarted during trust rotation.
@@ -43,35 +44,35 @@ type RolloutSpec struct {
 	TargetAnnotationSelector TargetAnnotationSelector `json:"targetAnnotationSelector"`
 }
 
-// SafetySpec defines validation and guard settings for the rotation process.
+// ProtectionSpec defines validation and guard settings for the rotation process.
 // It controls when rollouts can start, what checks are performed during rollout,
 // the readiness threshold required for data-plane convergence, how long to wait
 // before cleaning up the previous trust anchor, and how many failures are tolerated
 // before the rotation is aborted. These fields ensure the cluster remains healthy
 // and Linkerd stays operational throughout the trust rotation workflow.
-type SafetySpec struct {
+type ProtectionSpec struct {
 	// Run `linkerd check --proxy` during rollout
-	LinkerdCheckProxy bool `json:"linkerdCheckProxy"`
+	RunLinkerdCheckProxy bool `json:"runLinkerdCheckProxy"`
 
 	// +optional
 	LinkerdCheckProxyImage string `json:"linkerdCheckProxyImage,omitempty"`
 
 	// Delay before starting rollouts after detecting change (e.g. "30s")
 	// +optional
-	PreRolloutDelay *metav1.Duration `json:"preRolloutDelay,omitempty"`
+	BeforeRolloutDelay *metav1.Duration `json:"beforeRolloutDelay,omitempty"`
+
+	// RetriggerRolloutAfterCleanup runs an additional restart after trust cleanup,
+	// ensuring proxies reload only the new trust anchor.
+	// +optional
+	RetriggerRolloutAfterCleanup bool `json:"retriggerRolloutAfterCleanup,omitempty"`
 
 	// Hold time after reaching readiness threshold after cleanup previous trust secret (e.g. "5m").
 	// Relevant only if retriggerRollout is enabled.
 	// +optional
 	HoldAfterCleanup *metav1.Duration `json:"holdAfterCleanup,omitempty"`
 
-	// RetriggerRollout runs an additional restart after trust cleanup,
-	// ensuring proxies reload only the new trust anchor.
-	// +optional
-	RetriggerRollout bool `json:"retriggerRollout,omitempty"`
-
 	// Maximum number of allowed failures before aborting rotation
-	MaxFailures int `json:"maxFailures"`
+	MaxRolloutFailures int `json:"maxRolloutFailures"`
 }
 
 // TargetAnnotationSelector defines how to select workloads that should be restarted.
@@ -121,27 +122,32 @@ type TargetScope struct {
 type AnnotationBumpOptions struct {
 	// Annotation key to bump (default: "operators.infra/rotation")
 	// +optional
-	BumpAnnotationKey string `json:"bumpAnnotationKey,omitempty"`
+	BumpAnnotationKey string `json:"key,omitempty"`
 
 	// Annotation value to bump (default: "")
 	// +optional
-	BumpAnnotationValue string `json:"bumpAnnotationValue,omitempty"`
+	BumpAnnotationValue string `json:"value,omitempty"`
 }
 
-// LinkerdTrustRotationSpec defines the desired state of LinkerdTrustRotation
-type LinkerdTrustRotationSpec struct {
+type LinkerdSpec struct {
 	// Namespace where Linkerd control-plane is installed
 	Namespace string `json:"namespace"`
 
 	// Names of ConfigMap and Secrets managed by the operator
-	TrustRootsConfigMap string `json:"trustRootsConfigMap"`
-	CurrentTrustSecret  string `json:"currentTrustSecret"`
-	PreviousTrustSecret string `json:"previousTrustSecret"`
+	TrustRootsConfigMap       string `json:"trustRootsConfigMap"`
+	TrustAnchorSecret         string `json:"trustAnchorSecret"`
+	PreviousTrustAnchorSecret string `json:"previousTrustAnchorSecret"`
 
 	// Whether the operator should create the previous trust secret
 	// during the first bootstrap if it does not exist.
 	// If false, the operator assumes it is already provisioned.
-	BootstrapPrevious bool `json:"bootstrapPrevious"`
+	BootstrapPreviousSecret bool `json:"bootstrapPreviousSecret"`
+}
+
+// LinkerdTrustRotationSpec defines the desired state of LinkerdTrustRotation
+type LinkerdTrustRotationSpec struct {
+	// Linkerd settings
+	Linkerd LinkerdSpec `json:"linkerd"`
 
 	// Trigger settings
 	Trigger RotationTrigger `json:"trigger"`
@@ -149,8 +155,8 @@ type LinkerdTrustRotationSpec struct {
 	// Rollout settings
 	Rollout RolloutSpec `json:"rollout"`
 
-	// Safety and validation settings
-	Safety SafetySpec `json:"safety"`
+	// Protection and validation settings
+	Protection ProtectionSpec `json:"protection"`
 
 	// Dry-run mode
 	// +optional
@@ -266,9 +272,9 @@ type LinkerdTrustRotationStatus struct {
 	// +optional
 	Cursor *RolloutCursor `json:"cursor,omitempty"`
 
-	// DryRunOutput is a human-readable summary of the last dry-run (no changes applied).
+	// DryRunPlan is a human-readable summary of the last dry-run (no changes applied).
 	// +optional
-	DryRunOutput string `json:"dryRunOutput,omitempty"`
+	DryRunPlan string `json:"dryRunPlan,omitempty"`
 }
 
 // +kubebuilder:object:root=true

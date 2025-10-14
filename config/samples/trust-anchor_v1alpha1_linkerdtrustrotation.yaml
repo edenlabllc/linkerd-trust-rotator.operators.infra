@@ -3,15 +3,16 @@ kind: LinkerdTrustRotation
 metadata:
   name: default
 spec:
-  namespace: linkerd
-  trustRootsConfigMap: linkerd-identity-trust-roots
-  currentTrustSecret: linkerd-trust-anchor-file-ca-trust-anchor-secret
-  previousTrustSecret: linkerd-previous-trust-anchor
-  bootstrapPrevious: true
+  linkerd:
+    namespace: linkerd
+    trustRootsConfigMap: linkerd-identity-trust-roots
+    trustAnchorSecret: linkerd-trust-anchor-file-ca-trust-anchor-secret
+    previousTrustAnchorSecret: linkerd-previous-trust-anchor
+    bootstrapPreviousSecret: true
 
   trigger:
-    onConfigMapChange: true
-    requireSecretsDivergence: true
+    onTrustRootsConfigMapChange: true
+    onTrustAnchorSecretsDiff: true
 
   rollout:
     targetAnnotationSelector:
@@ -24,8 +25,8 @@ spec:
           kind: StrimziPodSet
           version: v1beta2
           annotationBump:
-            bumpAnnotationKey: strimzi.io/manual-rolling-update
-            bumpAnnotationValue: "true"
+            key: strimzi.io/manual-rolling-update
+            value: "true"
         - kindType: StatefulSet
           allowedNamespaces: [mongodb, zookeeper, clickhouse, minio, weaviate]
         - kindType: StatefulSet
@@ -37,11 +38,11 @@ spec:
         - kindType: Deployment
           allowedNamespaces: [postgres, kong]
 
-  safety:
-    linkerdCheckProxy: true
-    preRolloutDelay: 30s
+  protection:
+    runLinkerdCheckProxy: true
+    beforeRolloutDelay: 30s
+    retriggerRolloutAfterCleanup: true
     holdAfterCleanup: 30s
-    retriggerRollout: true
-    maxFailures: 3
+    maxRolloutFailures: 3
 
   dryRun: false

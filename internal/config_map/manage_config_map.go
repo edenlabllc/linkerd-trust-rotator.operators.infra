@@ -48,7 +48,7 @@ func (m *ManageConfigMap) LoadAndInspectCMBundle(ctx context.Context, obj *trv1a
 	var state v1alpha1.BundleState
 
 	cm := &v1.ConfigMap{}
-	cmNamespaced := types.NamespacedName{Namespace: obj.Spec.Namespace, Name: obj.Spec.TrustRootsConfigMap}
+	cmNamespaced := types.NamespacedName{Namespace: obj.Spec.Linkerd.Namespace, Name: obj.Spec.Linkerd.TrustRootsConfigMap}
 	if err := m.Client.Get(ctx, cmNamespaced, cm); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("configmap %s not found", cmNamespaced.String())

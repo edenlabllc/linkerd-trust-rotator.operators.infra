@@ -37,16 +37,16 @@ const (
 	// PhasePreCheck — running pre-checks (optional linkerd check --proxy, quotas, availability)
 	PhasePreCheck Phase = "PreCheck"
 
-	// PhaseRollingCP — restarting control plane
-	PhaseRollingCP Phase = "RollingCP"
+	// PhaseRollingControlPlane — restarting control plane
+	PhaseRollingControlPlane Phase = "RollingCP"
 
-	// PhaseRollingDP — restarting data plane (via annotation selector)
-	PhaseRollingDP Phase = "RollingDP"
+	// PhaseRollingDataPlane — restarting data plane (via annotation selector)
+	PhaseRollingDataPlane Phase = "RollingDP"
 
-	// PhaseVerifying — verifying dataplane readiness threshold
+	// PhaseVerifying — verifying data plane readiness threshold
 	PhaseVerifying Phase = "Verifying"
 
-	// PhaseHold — waiting before cleanup (holdBeforeCleanup timer)
+	// PhaseHold — waiting after cleanup (holdAfterCleanup timer)
 	PhaseHold Phase = "Hold"
 
 	// PhaseCleanup — deleting old previous secret, finalizing bundle
@@ -57,9 +57,6 @@ const (
 
 	// PhaseFailed — rotation failed (exceeded maxFailures, timeouts, etc.)
 	PhaseFailed Phase = "Failed"
-
-	// PhasePaused — manually paused (if pause flag in spec is set)
-	PhasePaused Phase = "Paused"
 )
 
 // Reason is a short, machine-readable identifier that explains
@@ -79,17 +76,17 @@ const (
 	ReasonProxyCheckFailed   Reason = "ProxyCheckFailed"
 	ReasonMaxRetriesExceeded Reason = "ReasonMaxRetriesExceeded"
 
-	// --- RollingCP ---
-	ReasonCPRestarting Reason = "ControlPlaneRestarting"
-	ReasonCPReady      Reason = "ControlPlaneReady"
+	// --- RollingControlPlane ---
+	ReasonControlPlaneRestarting Reason = "ControlPlaneRestarting"
+	ReasonControlPlaneReady      Reason = "ControlPlaneReady"
 
-	// --- RollingDP ---
-	ReasonDPBatchRestarting  Reason = "DataPlaneBatchRestarting"
-	ReasonDPThresholdReached Reason = "DataPlaneThresholdReached"
+	// --- RollingDataPlane ---
+	ReasonDataPlaneBatchRestarting  Reason = "DataPlaneBatchRestarting"
+	ReasonDataPlaneThresholdReached Reason = "DataPlaneThresholdReached"
 
 	// --- Verifying ---
-	ReasonVerificationPassed Reason = "VerificationPassed"
-	ReasonVerificationFailed Reason = "VerificationFailed"
+	ReasonVerificationSucceeded Reason = "VerificationSucceeded"
+	ReasonVerificationFailed    Reason = "VerificationFailed"
 
 	// --- Hold ---
 	ReasonHoldTimerRunning Reason = "HoldTimerRunning"
@@ -97,11 +94,10 @@ const (
 	// --- Cleanup ---
 	ReasonPreviousDeleted Reason = "PreviousSecretDeleted"
 
-	// --- Terminal ---
+	// --- Result ---
 	ReasonRotationSucceeded Reason = "RotationSucceeded"
 	ReasonRotationFailed    Reason = "RotationFailed"
-	ReasonManuallyPaused    Reason = "ManuallyPaused"
 
-	// --- Dry-run ---
+	// --- DryRun ---
 	ReasonDryRun Reason = "DryRunCompleted"
 )

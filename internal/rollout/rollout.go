@@ -99,7 +99,7 @@ func (m *ManageRollout) restartStatefulSetByDelete(ctx context.Context, sts *v1.
 	// List pods by StatefulSet selector
 	selector, err := metav1.LabelSelectorAsSelector(sts.Spec.Selector)
 	if err != nil {
-		return fmt.Errorf("build selector for sts %s/%s: %w", sts.Namespace, sts.Name, err)
+		return fmt.Errorf("build selector for StatefulSet %s/%s: %w", sts.Namespace, sts.Name, err)
 	}
 
 	var pods corev1.PodList
@@ -107,7 +107,7 @@ func (m *ManageRollout) restartStatefulSetByDelete(ctx context.Context, sts *v1.
 		client.InNamespace(sts.Namespace),
 		client.MatchingLabelsSelector{Selector: selector},
 	); err != nil {
-		return fmt.Errorf("list pods for sts %s/%s: %w", sts.Namespace, sts.Name, err)
+		return fmt.Errorf("list pods for StatefulSet %s/%s: %w", sts.Namespace, sts.Name, err)
 	}
 
 	if len(pods.Items) == 0 {
@@ -249,7 +249,7 @@ func (m *ManageRollout) waitDeploymentRolledOut(ctx context.Context, key types.N
 	for {
 		// timeout check
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for deployment rollout")
+			return fmt.Errorf("timeout waiting for Deployment rollout")
 		}
 
 		select {
@@ -293,7 +293,7 @@ func (m *ManageRollout) waitStatefulSetRolledOut(ctx context.Context, key types.
 
 	for {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for statefulset rollout")
+			return fmt.Errorf("timeout waiting for StatefulSet rollout")
 		}
 		select {
 		case <-ctx.Done():
@@ -336,7 +336,7 @@ func (m *ManageRollout) waitDaemonSetRolledOut(ctx context.Context, key types.Na
 
 	for {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for daemonset rollout")
+			return fmt.Errorf("timeout waiting for Daemonset rollout")
 		}
 		select {
 		case <-ctx.Done():
@@ -354,7 +354,7 @@ func (m *ManageRollout) waitDaemonSetRolledOut(ctx context.Context, key types.Na
 		}
 
 		if cur.Spec.UpdateStrategy.Type == v1.OnDeleteDaemonSetStrategyType {
-			return fmt.Errorf("daemonset %s uses OnDelete strategy: template bump won't roll pods", key.String())
+			return fmt.Errorf("Daemonset %s uses OnDelete strategy: template bump won't roll pods", key.String())
 		}
 
 		desired := cur.Status.DesiredNumberScheduled

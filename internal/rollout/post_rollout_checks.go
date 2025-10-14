@@ -17,7 +17,7 @@ const (
 	// DefaultLinkerdCLIImage can be overridden via CR.
 	defaultLinkerdCLIImage = "ghcr.io/linkerd/cli-bin:stable-2.14.10"
 	jobNamePrefix          = "linkerd-proxy-check"
-	jobSA                  = "l5d-check"
+	jobSA                  = "linkerd-check"
 )
 
 type CheckProxyOptions struct {
@@ -29,12 +29,12 @@ type CheckProxyOptions struct {
 	Timeout       time.Duration
 }
 
-func NewCheckProxyOptions(controlPlane bool, image, targetNs, jobNS, jobNameSuffix string, timeout time.Duration) *CheckProxyOptions {
+func NewCheckProxyOptions(controlPlane bool, image, targetNs, jobNs, jobNameSuffix string, timeout time.Duration) *CheckProxyOptions {
 	return &CheckProxyOptions{
 		CLIImage:      image,
 		ControlPlane:  controlPlane,
 		TargetNs:      targetNs,
-		JobNs:         jobNS,
+		JobNs:         jobNs,
 		JobNameSuffix: jobNameSuffix,
 		Timeout:       timeout,
 	}
