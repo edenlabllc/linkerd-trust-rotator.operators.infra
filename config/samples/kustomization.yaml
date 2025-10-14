@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- trust-anchor_v1alpha1_linkerdtrustrotation.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
