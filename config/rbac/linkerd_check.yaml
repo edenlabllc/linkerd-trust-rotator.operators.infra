@@ -1,4 +1,4 @@
-# sa-rbac-linkerd-check.yaml
+# sa linkerd-check
 apiVersion: v1
 kind: ServiceAccount
 metadata:
