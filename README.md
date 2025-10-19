@@ -11,9 +11,8 @@ across
 both [control and data planes](https://linkerd.io/2-edge/reference/architecture/). It ensures seamless **certificate
 renewal** without manual restarts or service disruption.
 
-The operator **continuously** inspects the Linkerd trust bundles, detects changes, and coordinates the rotation process
-in a
-controlled, verifiable manner.
+The operator **continuously inspects** the Linkerd trust bundles, detects changes, and coordinates the rotation process
+in a controlled, verifiable manner.
 
 ## Description
 
@@ -248,8 +247,6 @@ previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml
 is manually re-applied afterwards.
 
 ## Contributing
-
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
