@@ -6,7 +6,7 @@ resources:
 # subjects if changing service account names.
 - service_account.yaml
 - role.yaml
-- l5d_check.yaml
+- linkerd_check.yaml
 - role_binding.yaml
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
