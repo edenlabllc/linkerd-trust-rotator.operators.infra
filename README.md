@@ -4,8 +4,10 @@
 [![Software License](https://img.shields.io/github/license/edenlabllc/linkerd-trust-rotator.operators.infra.operators.infra.svg?style=for-the-badge)](LICENSE)
 [![Powered By: Edenlab](https://img.shields.io/badge/powered%20by-edenlab-8A2BE2.svg?style=for-the-badge)](https://edenlab.io)
 
-The Linkerd Trust Rotator Operator automates the **zero-downtime** rotation
-of [Linkerd](https://linkerd.io/2.14/overview/) [trust anchors](https://linkerd.io/2.14/tasks/generate-certificates/)
+The Linkerd Trust Rotator Operator 
+[automates](https://linkerd.io/2.14/tasks/automatically-rotating-control-plane-tls-credentials/) the **zero-downtime** 
+rotation of Linkerd
+[trust anchors](https://linkerd.io/2.14/tasks/generate-certificates/)
 (root [CA](https://en.wikipedia.org/wiki/Certificate_authority) entities) and the propagation of new certificates
 across
 both [control and data planes](https://linkerd.io/2.14/reference/architecture/). It ensures seamless **certificate
