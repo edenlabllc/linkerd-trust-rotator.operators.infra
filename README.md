@@ -5,10 +5,10 @@
 [![Powered By: Edenlab](https://img.shields.io/badge/powered%20by-edenlab-8A2BE2.svg?style=for-the-badge)](https://edenlab.io)
 
 The Linkerd Trust Rotator Operator automates the **zero-downtime** rotation
-of [Linkerd](https://linkerd.io/) [trust anchors](https://linkerd.io/2-edge/tasks/generate-certificates/)
+of [Linkerd](https://linkerd.io/2.14/overview/) [trust anchors](https://linkerd.io/2.14/tasks/generate-certificates/)
 (root [CA](https://en.wikipedia.org/wiki/Certificate_authority) entities) and the propagation of new certificates
 across
-both [control and data planes](https://linkerd.io/2-edge/reference/architecture/). It ensures seamless **certificate
+both [control and data planes](https://linkerd.io/2.14/reference/architecture/). It ensures seamless **certificate
 renewal** without manual restarts or service disruption.
 
 The operator **continuously inspects** the Linkerd trust bundles, detects changes, and coordinates the rotation process
@@ -26,7 +26,7 @@ The Linkerd Trust Rotator Operator replaces this manual procedure with an **auto
 - **Synchronizes** `trust-anchor` and `previous-trust-anchor` Secrets.
 - **Orchestrates** a phased restart of control-plane and data-plane workloads.
 - **Validates** connectivity and proxy health through
-  automated [linkerd check](https://linkerd.io/2-edge/reference/cli/check/) jobs.
+  automated [linkerd check](https://linkerd.io/2.14/reference/cli/check/) jobs.
 
 The operator is designed for environments where continuous availability and **minimal human intervention** are required.
 
@@ -38,6 +38,13 @@ The operator is designed for environments where continuous availability and **mi
 - **Safe verification:** Runs `linkerd check --proxy` jobs during rollout to confirm successful proxy reloads.
 - **Configurable protection policy:** Supports delay windows, retry limits, and re-trigger after cleanup.
 - **Status observability:** Provides detailed `.status` phase, progress, retries, and trust-bundle fingerprints.
+
+## Component Requirements
+
+- **cert-manager:** [v1.14](https://github.com/cert-manager/cert-manager/releases/tag/v1.14.0) or newer – provides CA
+  and issuer management
+- **trust-manager:** [v0.18](https://github.com/cert-manager/trust-manager/releases/tag/v0.18.0) or newer – distributes
+  public trust bundles to ConfigMaps
 
 ## Custom Resource Specification
 
