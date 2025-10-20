@@ -1,7 +1,7 @@
 # Linkerd Trust Rotator Operator
 
-[![Release](https://img.shields.io/github/v/release/edenlabllc/linkerd-trust-rotator.operators.infra.operators.infra.svg?style=for-the-badge)](https://github.com/edenlabllc/linkerd-trust-rotator.operators.infra.operators.infra/releases/latest)
-[![Software License](https://img.shields.io/github/license/edenlabllc/linkerd-trust-rotator.operators.infra.operators.infra.svg?style=for-the-badge)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/edenlabllc/linkerd-trust-rotator.operators.infra.svg?style=for-the-badge)](https://github.com/edenlabllc/linkerd-trust-rotator.operators.infra/releases/latest)
+[![Software License](https://img.shields.io/github/license/edenlabllc/linkerd-trust-rotator.operators.infra.svg?style=for-the-badge)](LICENSE)
 [![Powered By: Edenlab](https://img.shields.io/badge/powered%20by-edenlab-8A2BE2.svg?style=for-the-badge)](https://edenlab.io)
 
 The Linkerd Trust Rotator Operator 
