@@ -28,16 +28,16 @@ spec:
             key: strimzi.io/manual-rolling-update
             value: "true"
         - kindType: StatefulSet
-          allowedNamespaces: [mongodb, zookeeper, clickhouse, minio, weaviate]
+          allowedNamespaces: ["clickhouse", "minio", "weaviate"]
         - kindType: StatefulSet
-          allowedNamespaces: [redis]
+          allowedNamespaces: ["redis"]
           rolloutStrategy: rolloutDelete
           rolloutTimeout: 10m
         - kindType: StatefulSet
-          allowedNamespaces: [postgres]
+          allowedNamespaces: ["mongodb-percona", "postgres"]
           rolloutStrategy: rolloutDelete
         - kindType: Deployment
-          allowedNamespaces: [postgres, kong]
+          allowedNamespaces: ["postgres"]
 
   protection:
     runLinkerdCheckProxy: true
