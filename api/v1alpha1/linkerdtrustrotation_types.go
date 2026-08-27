@@ -102,6 +102,12 @@ type TargetScope struct {
 	// +optional
 	RolloutStrategy string `json:"rolloutStrategy,omitempty"`
 
+	// Timeout for waiting on this target's rollout to complete
+	// (e.g. Deployment/StatefulSet/DaemonSet/CR/Pod readiness).
+	// Defaults to a controller-level constant if not set.
+	// +optional
+	RolloutTimeout *metav1.Duration `json:"rolloutTimeout,omitempty"`
+
 	// Optional G/V for custom kinds. Built-ins default to apps/v1.
 	// +optional
 	APIGroup string `json:"apiGroup,omitempty"`

@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"linkerd-trust-rotator.operators.infra/internal/status"
@@ -23,7 +24,7 @@ import (
 const (
 	restartedAtKey      = "kubectl.kubernetes.io/restartedAt"
 	rolloutPollInterval = 2 * time.Second
-	rolloutPerLimit     = 5 * time.Minute
+	rolloutPollTimeout  = 5 * time.Minute
 )
 
 type ManageRollout struct {
@@ -56,7 +57,6 @@ func (m *ManageRollout) bumpAnnotationGeneric(ctx context.Context, obj client.Ob
 		}
 		o.Spec.Template.Annotations[key] = value
 		return m.Client.Patch(ctx, o, client.MergeFrom(orig))
-
 	case *v1.StatefulSet:
 		orig := o.DeepCopy()
 		if o.Spec.Template.Annotations == nil {
@@ -64,7 +64,6 @@ func (m *ManageRollout) bumpAnnotationGeneric(ctx context.Context, obj client.Ob
 		}
 		o.Spec.Template.Annotations[key] = value
 		return m.Client.Patch(ctx, o, client.MergeFrom(orig))
-
 	case *v1.DaemonSet:
 		orig := o.DeepCopy()
 		if o.Spec.Template.Annotations == nil {
@@ -74,7 +73,6 @@ func (m *ManageRollout) bumpAnnotationGeneric(ctx context.Context, obj client.Ob
 		return m.Client.Patch(ctx, o, client.MergeFrom(orig))
 	case *unstructured.Unstructured:
 		return m.bumpAnnotationUnstructured(ctx, o, key, value)
-
 	default:
 		return fmt.Errorf("unsupported type for annotation bump: %T", obj)
 	}
@@ -141,38 +139,30 @@ func (m *ManageRollout) deletePodAndWaitSameNameReady(ctx context.Context, p *co
 		return fmt.Errorf("delete pod %s/%s: %w", p.Namespace, p.Name, err)
 	}
 
-	deadline := time.Now().Add(timeout)
-	tick := time.NewTicker(2 * time.Second)
-	defer tick.Stop()
-
 	key := types.NamespacedName{Namespace: p.Namespace, Name: p.Name}
 
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-tick.C:
-		}
+	return wait.PollUntilContextTimeout(ctx, rolloutPollInterval, timeout, false,
+		func(ctx context.Context) (bool, error) {
+			var cur corev1.Pod
+			err := m.Client.Get(ctx, key, &cur)
+			if apierrors.IsNotFound(err) {
+				// Still recreating — keep polling
+				return false, nil
+			}
 
-		var cur corev1.Pod
-		err := m.Client.Get(ctx, key, &cur)
-		if apierrors.IsNotFound(err) {
-			// Still recreating — keep polling
-			continue
-		}
-		if err != nil {
-			return err
-		}
+			if err != nil {
+				return false, err
+			}
 
-		// Ready when Running + PodReady=True and not terminating
-		if cur.DeletionTimestamp == nil &&
-			cur.Status.Phase == corev1.PodRunning &&
-			podReady(&cur) {
-			return nil
-		}
-	}
+			// Ready when Running + PodReady=True and not terminating
+			if cur.DeletionTimestamp == nil &&
+				cur.Status.Phase == corev1.PodRunning &&
+				podReady(&cur) {
+				return true, nil
+			}
 
-	return fmt.Errorf("timeout waiting pod %s/%s to be Ready after delete", p.Namespace, p.Name)
+			return false, nil
+		})
 }
 
 // waitCRByAnnotationAndStatus is a generic waiter for any CRD.
@@ -191,10 +181,6 @@ func (m *ManageRollout) waitCRByAnnotationAndStatus(
 	requireAnnoCleared bool,
 	timeout time.Duration,
 ) error {
-	ticker := time.NewTicker(rolloutPollInterval)
-	defer ticker.Stop()
-
-	deadline := time.Now().Add(timeout)
 	statusOK := func(u *unstructured.Unstructured) bool {
 		ready, _, _ := unstructured.NestedInt64(u.Object, "status", "readyPods")
 		total, _, _ := unstructured.NestedInt64(u.Object, "status", "pods")
@@ -202,205 +188,137 @@ func (m *ManageRollout) waitCRByAnnotationAndStatus(
 		return total > 0 && ready == total && obs >= u.GetGeneration()
 	}
 
-	for {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for %s", u.GroupVersionKind().String())
-		}
+	return wait.PollUntilContextTimeout(ctx, rolloutPollInterval, timeout, false,
+		func(ctx context.Context) (bool, error) {
+			cur := &unstructured.Unstructured{}
+			cur.SetGroupVersionKind(u.GroupVersionKind())
+			if err := m.Client.Get(ctx, key, cur); err != nil {
+				if apierrors.IsNotFound(err) {
+					return false, nil
+				}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-
-		cur := &unstructured.Unstructured{}
-		cur.SetGroupVersionKind(u.GroupVersionKind())
-		if err := m.Client.Get(ctx, key, cur); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
+				return false, err
 			}
 
-			return err
-		}
+			ok := statusOK(cur)
+			if requireAnnoCleared {
+				ann := cur.GetAnnotations()
+				cleared := ann == nil || ann[annoKey] == ""
+				return ok && cleared, nil
+			}
 
-		ok := statusOK(cur)
-		if requireAnnoCleared {
-			ann := cur.GetAnnotations()
-			cleared := ann == nil || ann[annoKey] == ""
-			if ok && cleared {
-				return nil
-			}
-		} else {
-			if ok {
-				return nil
-			}
-		}
-	}
+			return ok, nil
+		})
 }
 
 // waitDeploymentRolledOut waits until Deployment is fully rolled out,
 // following the same logic as `kubectl rollout status`.
 func (m *ManageRollout) waitDeploymentRolledOut(ctx context.Context, key types.NamespacedName, timeout time.Duration) error {
-	ticker := time.NewTicker(rolloutPollInterval)
-	defer ticker.Stop()
-
-	deadline := time.Now().Add(timeout)
-
-	for {
-		// timeout check
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for Deployment rollout")
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-
-		var cur v1.Deployment
-		if err := m.Client.Get(ctx, key, &cur); err != nil {
-			if apierrors.IsNotFound(err) {
-				// unlikely for Deployment, but retry
-				continue
+	return wait.PollUntilContextTimeout(ctx, rolloutPollInterval, timeout, false,
+		func(ctx context.Context) (bool, error) {
+			var cur v1.Deployment
+			if err := m.Client.Get(ctx, key, &cur); err != nil {
+				if apierrors.IsNotFound(err) {
+					// unlikely for Deployment, but retry
+					return false, nil
+				}
+				return false, err
 			}
-			return err
-		}
 
-		// replicas defaults to 1 if not set
-		var replicas int32 = 1
-		if cur.Spec.Replicas != nil {
-			replicas = *cur.Spec.Replicas
-		}
+			// replicas defaults to 1 if not set
+			var replicas int32 = 1
+			if cur.Spec.Replicas != nil {
+				replicas = *cur.Spec.Replicas
+			}
 
-		ready := cur.Status.UpdatedReplicas == replicas &&
-			cur.Status.ReadyReplicas == replicas &&
-			cur.Status.UnavailableReplicas == 0 &&
-			cur.Status.ObservedGeneration >= cur.Generation
+			ready := cur.Status.UpdatedReplicas == replicas &&
+				cur.Status.ReadyReplicas == replicas &&
+				cur.Status.UnavailableReplicas == 0 &&
+				cur.Status.ObservedGeneration >= cur.Generation
 
-		if ready {
-			return nil
-		}
-	}
+			return ready, nil
+		})
 }
 
 // waitStatefulSetRolledOut waits until StatefulSet has finished rolling update.
 func (m *ManageRollout) waitStatefulSetRolledOut(ctx context.Context, key types.NamespacedName, timeout time.Duration) error {
-	ticker := time.NewTicker(rolloutPollInterval)
-	defer ticker.Stop()
-
-	deadline := time.Now().Add(timeout)
-
-	for {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for StatefulSet rollout")
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-
-		var cur v1.StatefulSet
-		if err := m.Client.Get(ctx, key, &cur); err != nil {
-			if apierrors.IsNotFound(err) {
-				// Unlikely for StatefulSet; retry next tick.
-				continue
+	return wait.PollUntilContextTimeout(ctx, rolloutPollInterval, timeout, false,
+		func(ctx context.Context) (bool, error) {
+			var cur v1.StatefulSet
+			if err := m.Client.Get(ctx, key, &cur); err != nil {
+				if apierrors.IsNotFound(err) {
+					// Unlikely for StatefulSet; retry next tick.
+					return false, nil
+				}
+				return false, err
 			}
-			return err
-		}
 
-		// default replicas = 1 if not set
-		var replicas int32 = 1
-		if cur.Spec.Replicas != nil {
-			replicas = *cur.Spec.Replicas
-		}
+			// default replicas = 1 if not set
+			var replicas int32 = 1
+			if cur.Spec.Replicas != nil {
+				replicas = *cur.Spec.Replicas
+			}
 
-		ready := cur.Status.ReadyReplicas == replicas &&
-			cur.Status.CurrentRevision == cur.Status.UpdateRevision &&
-			cur.Status.ObservedGeneration >= cur.Generation
+			ready := cur.Status.ReadyReplicas == replicas &&
+				cur.Status.CurrentRevision == cur.Status.UpdateRevision &&
+				cur.Status.ObservedGeneration >= cur.Generation
 
-		if ready {
-			return nil
-		}
-	}
+			return ready, nil
+		})
 }
 
 // waitDaemonSetRolledOut waits until DaemonSet has finished rolling update.
 // Note: with OnDelete strategy, bumping the template won't roll pods; we fail early.
 func (m *ManageRollout) waitDaemonSetRolledOut(ctx context.Context, key types.NamespacedName, timeout time.Duration) error {
-	ticker := time.NewTicker(rolloutPollInterval)
-	defer ticker.Stop()
-
-	deadline := time.Now().Add(timeout)
-
-	for {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for Daemonset rollout")
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-
-		var cur v1.DaemonSet
-		if err := m.Client.Get(ctx, key, &cur); err != nil {
-			if apierrors.IsNotFound(err) {
-				// Unlikely for DaemonSet; retry next tick.
-				continue
+	return wait.PollUntilContextTimeout(ctx, rolloutPollInterval, timeout, false,
+		func(ctx context.Context) (bool, error) {
+			var cur v1.DaemonSet
+			if err := m.Client.Get(ctx, key, &cur); err != nil {
+				if apierrors.IsNotFound(err) {
+					// Unlikely for DaemonSet; retry next tick.
+					return false, nil
+				}
+				return false, err
 			}
-			return err
-		}
 
-		if cur.Spec.UpdateStrategy.Type == v1.OnDeleteDaemonSetStrategyType {
-			return fmt.Errorf("Daemonset %s uses OnDelete strategy: template bump won't roll pods", key.String())
-		}
+			if cur.Spec.UpdateStrategy.Type == v1.OnDeleteDaemonSetStrategyType {
+				return false, fmt.Errorf("Daemonset %s uses OnDelete strategy: template bump won't roll pods", key.String())
+			}
 
-		desired := cur.Status.DesiredNumberScheduled
-		ready := cur.Status.UpdatedNumberScheduled == desired &&
-			cur.Status.NumberAvailable == desired &&
-			cur.Status.NumberMisscheduled == 0 &&
-			cur.Status.ObservedGeneration >= cur.Generation
+			desired := cur.Status.DesiredNumberScheduled
+			ready := cur.Status.UpdatedNumberScheduled == desired &&
+				cur.Status.NumberAvailable == desired &&
+				cur.Status.NumberMisscheduled == 0 &&
+				cur.Status.ObservedGeneration >= cur.Generation
 
-		if ready {
-			return nil
-		}
-	}
+			return ready, nil
+		})
 }
 
 func (m *ManageRollout) waitJobSucceeded(ctx context.Context, ns, name string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	tick := time.NewTicker(rolloutPollInterval)
-	defer tick.Stop()
-
 	key := client.ObjectKey{Namespace: ns, Name: name}
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-tick.C:
-		}
 
-		var cur batchv1.Job
-		if err := m.Client.Get(ctx, key, &cur); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
+	return wait.PollUntilContextTimeout(ctx, rolloutPollInterval, timeout, false,
+		func(ctx context.Context) (bool, error) {
+			var cur batchv1.Job
+			if err := m.Client.Get(ctx, key, &cur); err != nil {
+				if apierrors.IsNotFound(err) {
+					return false, nil
+				}
+
+				return false, err
 			}
 
-			return err
-		}
+			for _, c := range cur.Status.Conditions {
+				if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
+					return false, fmt.Errorf("linkerd check job failed: %s", c.Message)
+				}
 
-		for _, c := range cur.Status.Conditions {
-			if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
-				return fmt.Errorf("linkerd check job failed: %s", c.Message)
+				if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
+					return true, nil
+				}
 			}
 
-			if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
-				return nil
-			}
-		}
-	}
-
-	return fmt.Errorf("timeout waiting for linkerd check job %s/%s", ns, name)
+			return false, nil
+		})
 }

@@ -15,7 +15,7 @@ import (
 
 const (
 	// DefaultLinkerdCLIImage can be overridden via CR.
-	defaultLinkerdCLIImage = "ghcr.io/linkerd/cli-bin:stable-2.14.10"
+	defaultLinkerdCLIImage = "ghcr.io/linkerd/cli-bin:edge-25.8.3"
 	jobNamePrefix          = "linkerd-proxy-check"
 	jobSA                  = "linkerd-check"
 )
