@@ -68,7 +68,7 @@ func (m *ManageRollout) RestartLinkerdControlPlane(ctx context.Context, obj *trv
 		}
 
 		dsNamespacedName := types.NamespacedName{Namespace: dp.Namespace, Name: dp.Name}
-		if err := m.waitDeploymentRolledOut(ctx, dsNamespacedName, rolloutPerLimit); err != nil {
+		if err := m.waitDeploymentRolledOut(ctx, dsNamespacedName, rolloutPollTimeout); err != nil {
 			return err
 		}
 
@@ -81,7 +81,7 @@ func (m *ManageRollout) RestartLinkerdControlPlane(ctx context.Context, obj *trv
 		obj.Spec.Linkerd.Namespace,
 		obj.Spec.Linkerd.Namespace,
 		"control-plane",
-		rolloutPerLimit,
+		rolloutPollTimeout,
 	)); err != nil {
 		return err
 	}

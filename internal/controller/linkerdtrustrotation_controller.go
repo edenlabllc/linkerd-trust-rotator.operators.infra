@@ -53,10 +53,26 @@ type LinkerdTrustRotationReconciler struct {
 	Recorder record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=trust-anchor.linkerd.edenlab.io,resources=linkerdtrustrotations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=trust-anchor.linkerd.edenlab.io,resources=linkerdtrustrotations/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=trust-anchor.linkerd.edenlab.io,resources=linkerdtrustrotations/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=trust-anchor.linkerd.edenlab.io,resources=linkerdtrustrotations,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=trust-anchor.linkerd.edenlab.io,resources=linkerdtrustrotations/finalizers,verbs=update
+// +kubebuilder:rbac:groups=trust-anchor.linkerd.edenlab.io,resources=linkerdtrustrotations/status,verbs=get;patch;update
+
+// Manage built-in workloads (rollout via annotation bump / delete pods).
+// +kubebuilder:rbac:groups=apps,resources=deployments;statefulsets;daemonsets,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;delete
+
+// Run and clean up Jobs for linkerd checks.
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch;delete;patch
+
+// Read linkerd ConfigMaps/Secrets (trust roots, issuer) in any namespace.
+// If you want to restrict to linkerd ns only, prefer a namespaced Role+RoleBinding.
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;delete
+
+// Example: Strimzi CRD needed for rollout of data plane (annotation bump on CR).
+// Add more CRDs here similarly if your operator must touch them.
+// +kubebuilder:rbac:groups=core.strimzi.io,resources=strimzipodsets,verbs=get;list;watch;patch;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

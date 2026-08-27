@@ -340,6 +340,11 @@ func (in *TargetScope) DeepCopyInto(out *TargetScope) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.RolloutTimeout != nil {
+		in, out := &in.RolloutTimeout, &out.RolloutTimeout
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	if in.AnnotationBump != nil {
 		in, out := &in.AnnotationBump, &out.AnnotationBump
 		*out = new(AnnotationBumpOptions)

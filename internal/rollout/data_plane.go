@@ -52,6 +52,11 @@ type WorkItemDryRun struct {
 
 	// Strategy ties to your rollout strategy decision
 	Strategy string
+
+	// Timeout to wait for this specific target's rollout to complete.
+	// Resolved once at selection time from TargetScope.RolloutTimeout
+	// (falling back to a controller-level default).
+	Timeout time.Duration
 }
 
 // Result now also carries an ordered queue.
@@ -63,6 +68,14 @@ type Result struct {
 	Stats struct {
 		Deployments, StatefulSets, DaemonSets, CustomResources int
 	}
+}
+
+func resolveRolloutTimeout(scope trv1alpha1.TargetScope) time.Duration {
+	if scope.RolloutTimeout != nil {
+		return scope.RolloutTimeout.Duration
+	}
+
+	return rolloutPollTimeout
 }
 
 func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alpha1.LinkerdTrustRotation) (*Result, error) {
@@ -99,6 +112,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 							Namespace: ds.Namespace,
 							Name:      ds.Name,
 							Strategy:  rolloutStrategy,
+							Timeout:   resolveRolloutTimeout(scope),
 						}
 						result.Queue = append(result.Queue, WorkItem{
 							WorkItemDryRun: workItemDryRun,
@@ -130,6 +144,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 							Namespace: dep.Namespace,
 							Name:      dep.Name,
 							Strategy:  rolloutStrategy,
+							Timeout:   resolveRolloutTimeout(scope),
 						}
 						result.Queue = append(result.Queue, WorkItem{
 							WorkItemDryRun: workItemDryRun,
@@ -170,6 +185,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 							Namespace: cr.GetNamespace(),
 							Name:      cr.GetName(),
 							Strategy:  rolloutStrategy,
+							Timeout:   resolveRolloutTimeout(scope),
 						}
 						// If CR scope defines vendor-specific annotation bump, carry it
 						crItem := WorkItem{
@@ -212,6 +228,7 @@ func (m *ManageRollout) SelectLinkerdDataPlane(ctx context.Context, obj *trv1alp
 							Namespace: sts.Namespace,
 							Name:      sts.Name,
 							Strategy:  rolloutStrategy,
+							Timeout:   resolveRolloutTimeout(scope),
 						}
 						result.Queue = append(result.Queue, WorkItem{
 							WorkItemDryRun: workItemDryRun,
@@ -371,11 +388,11 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 				return recordFailure(w, err)
 			}
 
-			if err := m.waitDaemonSetRolledOut(ctx, getNamespaced(w), rolloutPerLimit); err != nil {
+			if err := m.waitDaemonSetRolledOut(ctx, getNamespaced(w), w.Timeout); err != nil {
 				return recordFailure(w, err)
 			}
 
-			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPerLimit); err != nil {
+			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPollTimeout); err != nil {
 				return recordFailure(w, err)
 			}
 
@@ -394,11 +411,11 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 				return recordFailure(w, err)
 			}
 
-			if err := m.waitDeploymentRolledOut(ctx, getNamespaced(w), rolloutPerLimit); err != nil {
+			if err := m.waitDeploymentRolledOut(ctx, getNamespaced(w), w.Timeout); err != nil {
 				return recordFailure(w, err)
 			}
 
-			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPerLimit); err != nil {
+			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPollTimeout); err != nil {
 				return recordFailure(w, err)
 			}
 
@@ -422,11 +439,11 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 			}
 
 			if err := m.waitCRByAnnotationAndStatus(ctx, getNamespaced(w), w.CR, w.BumpAnnotationKey,
-				true, rolloutPerLimit); err != nil {
+				true, w.Timeout); err != nil {
 				return recordFailure(w, err)
 			}
 
-			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPerLimit); err != nil {
+			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPollTimeout); err != nil {
 				return recordFailure(w, err)
 			}
 
@@ -446,18 +463,18 @@ func (m *ManageRollout) RestartLinkerdDataPlane(ctx context.Context, obj *trv1al
 					return recordFailure(w, err)
 				}
 
-				if err := m.waitStatefulSetRolledOut(ctx, getNamespaced(w), rolloutPerLimit); err != nil {
+				if err := m.waitStatefulSetRolledOut(ctx, getNamespaced(w), w.Timeout); err != nil {
 					return recordFailure(w, err)
 				}
 			}
 
 			if w.Strategy == Delete {
-				if err := m.restartStatefulSetByDelete(ctx, w.Sts, rolloutPerLimit); err != nil {
+				if err := m.restartStatefulSetByDelete(ctx, w.Sts, w.Timeout); err != nil {
 					return recordFailure(w, err)
 				}
 			}
 
-			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPerLimit); err != nil {
+			if err := m.runProxyCheckIfEnabled(ctx, &ltrSpec, getNamespace(w), getName(w), rolloutPollTimeout); err != nil {
 				return recordFailure(w, err)
 			}
 
